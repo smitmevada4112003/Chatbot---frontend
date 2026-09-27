@@ -1,0 +1,304 @@
+:root {
+  /* Core Brand & Accents */
+  --primary: #2563eb;
+  --primary-hover: #1d4ed8;
+  --primary-subtle: #eff6ff;
+  --primary-text: #2563eb;
+  --primary-border: #bfdbfe;
+
+  /* Surfaces & Backgrounds */
+  --bg: #f5f7fb;
+  --bg-primary: #f5f7fb;
+  --bg-secondary: #ffffff;
+  --bg-tertiary: #f8fafc;
+  --bg-hover: #f1f5f9;
+  --bg-active: #e2e8f0;
+  --bg-elevated: #ffffff;
+  --bg-overlay: rgba(15, 23, 42, 0.45);
+  --card-bg: #ffffff;
+  --header-bg: #ffffff;
+
+  /* Typography / Text */
+  --text-dark: #0f172a;
+  --text-primary: #0f172a;
+  --text-secondary: #64748b;
+  --text-muted: #64748b;
+  --text-tertiary: #94a3b8;
+  --text-inverse: #ffffff;
+
+  /* Borders & Dividers */
+  --border: #e2e8f0;
+  --border-color: #e2e8f0;
+  --card-border: #e2e8f0;
+  --border-subtle: #f1f5f9;
+  --border-strong: #cbd5e1;
+  --border-focus: #3b82f6;
+
+  /* Inputs & Form Controls */
+  --input-bg: #ffffff;
+  --input-border: #cbd5e1;
+  --input-text: #0f172a;
+  --input-placeholder: #94a3b8;
+  --input-focus-ring: rgba(37, 99, 235, 0.2);
+
+  /* Tables */
+  --table-header: #f8fafc;
+  --table-header-bg: #f8fafc;
+  --table-header-text: #475569;
+  --table-stripe: #f8fafc;
+  --table-stripe-bg: #f8fafc;
+  --table-hover: #f1f5f9;
+  --table-hover-bg: #f1f5f9;
+  --table-border: #e2e8f0;
+
+  /* Chat Component Variables */
+  --chat-bg: #f5f7fb;
+  --chat-container-bg: #ffffff;
+  --chat-header-bg: linear-gradient(135deg, #2563eb, #1d4ed8);
+  --chat-user-banner-bg: #1d4ed8;
+  --chat-user-banner-text: #e0e7ff;
+  --chat-bot-bubble: #ffffff;
+  --chat-bot-bubble-bg: #ffffff;
+  --chat-bot-bubble-border: #e2e8f0;
+  --chat-bot-text: #111827;
+  --chat-user-bubble-bg: #2563eb;
+  --chat-user-bubble-text: #ffffff;
+  --chat-input-row-bg: #ffffff;
+  --chat-input-bg: #f8fafc;
+
+  /* Semantic / Status Colors */
+  --success: #10b981;
+  --success-hover: #059669;
+  --success-subtle: #ecfdf5;
+  --success-text: #047857;
+  --success-border: #a7f3d0;
+
+  --danger: #ef4444;
+  --danger-hover: #dc2626;
+  --danger-subtle: #fef2f2;
+  --danger-text: #b91c1c;
+  --danger-border: #fecaca;
+
+  --warning: #f59e0b;
+  --warning-hover: #d97706;
+  --warning-subtle: #fffbeb;
+  --warning-text: #b45309;
+  --warning-border: #fde68a;
+
+  --info: #3b82f6;
+  --info-subtle: #eff6ff;
+  --info-text: #1d4ed8;
+  --info-border: #bfdbfe;
+
+  /* Elevation & Shadows */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -1px rgba(0, 0, 0, 0.04);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -2px rgba(0, 0, 0, 0.04);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.08), 0 10px 10px -5px rgba(0, 0, 0, 0.03);
+  --card-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.02);
+  --header-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+
+  /* Fonts */
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --heading: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+
+  font-family: var(--sans);
+  color-scheme: light;
+  color: var(--text-dark);
+  background-color: var(--bg);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+[data-theme="dark"],
+body.dark-mode {
+  /* Core Brand & Accents */
+  --primary: #3b82f6;
+  --primary-hover: #60a5fa;
+  --primary-subtle: rgba(59, 130, 246, 0.18);
+  --primary-text: #60a5fa;
+  --primary-border: rgba(59, 130, 246, 0.35);
+
+  /* Surfaces & Backgrounds */
+  --bg: #0f172a;
+  --bg-primary: #0f172a;
+  --bg-secondary: #1e293b;
+  --bg-tertiary: #162032;
+  --bg-hover: #334155;
+  --bg-active: #3b82f6;
+  --bg-elevated: #1e293b;
+  --bg-overlay: rgba(15, 23, 42, 0.75);
+  --card-bg: #1e293b;
+  --header-bg: #1e293b;
+
+  /* Typography / Text */
+  --text-dark: #f1f5f9;
+  --text-primary: #f1f5f9;
+  --text-secondary: #94a3b8;
+  --text-muted: #94a3b8;
+  --text-tertiary: #64748b;
+  --text-inverse: #0f172a;
+
+  /* Borders & Dividers */
+  --border: #334155;
+  --border-color: #334155;
+  --card-border: #334155;
+  --border-subtle: #243248;
+  --border-strong: #475569;
+  --border-focus: #3b82f6;
+
+  /* Inputs & Form Controls */
+  --input-bg: #0f172a;
+  --input-border: #334155;
+  --input-text: #f1f5f9;
+  --input-placeholder: #64748b;
+  --input-focus-ring: rgba(59, 130, 246, 0.3);
+
+  /* Tables */
+  --table-header: #162032;
+  --table-header-bg: #162032;
+  --table-header-text: #94a3b8;
+  --table-stripe: #131c2d;
+  --table-stripe-bg: #131c2d;
+  --table-hover: #243248;
+  --table-hover-bg: #243248;
+  --table-border: #334155;
+
+  /* Chat Component Variables */
+  --chat-bg: #0f172a;
+  --chat-container-bg: #1e293b;
+  --chat-header-bg: linear-gradient(135deg, #1d4ed8, #3b82f6);
+  --chat-user-banner-bg: #162032;
+  --chat-user-banner-text: #cbd5e1;
+  --chat-bot-bubble: #334155;
+  --chat-bot-bubble-bg: #334155;
+  --chat-bot-bubble-border: #475569;
+  --chat-bot-text: #f1f5f9;
+  --chat-user-bubble-bg: #3b82f6;
+  --chat-user-bubble-text: #ffffff;
+  --chat-input-row-bg: #1e293b;
+  --chat-input-bg: #0f172a;
+
+  /* Semantic / Status Colors */
+  --success: #34d399;
+  --success-hover: #10b981;
+  --success-subtle: rgba(16, 185, 129, 0.18);
+  --success-text: #34d399;
+  --success-border: rgba(52, 211, 153, 0.3);
+
+  --danger: #f87171;
+  --danger-hover: #ef4444;
+  --danger-subtle: rgba(239, 68, 68, 0.18);
+  --danger-text: #f87171;
+  --danger-border: rgba(248, 113, 113, 0.3);
+
+  --warning: #fbbf24;
+  --warning-hover: #f59e0b;
+  --warning-subtle: rgba(245, 158, 11, 0.18);
+  --warning-text: #fbbf24;
+  --warning-border: rgba(251, 191, 36, 0.3);
+
+  --info: #60a5fa;
+  --info-subtle: rgba(59, 130, 246, 0.18);
+  --info-text: #93c5fd;
+  --info-border: rgba(96, 165, 250, 0.3);
+
+  /* Elevation & Shadows */
+  --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 14px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 10px 25px rgba(0, 0, 0, 0.55);
+  --shadow-xl: 0 20px 35px rgba(0, 0, 0, 0.65);
+  --card-shadow: 0 4px 18px rgba(0, 0, 0, 0.45);
+  --header-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+
+  color-scheme: dark;
+  color: var(--text-dark);
+  background-color: var(--bg);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+  background-color: var(--bg);
+  color: var(--text-dark);
+  font-family: var(--sans);
+  line-height: 1.5;
+  transition: background-color 250ms ease, color 250ms ease;
+}
+
+#root {
+  width: 100%;
+  max-width: 100%;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  text-align: left;
+  background-color: var(--bg);
+  color: var(--text-dark);
+  overflow-x: hidden;
+  transition: background-color 250ms ease, color 250ms ease;
+}
+
+/* Smooth visual color scheme transition for theme toggling across components */
+.app-shell,
+.app-header,
+.chat-container,
+.chat-messages,
+.chat-bubble,
+.chat-input-row,
+.admin-container,
+.kpi-card,
+.management-card,
+.status-overview-banner,
+.status-overview-bar,
+.dashboard-top-header,
+.table-toolbar,
+.data-table,
+.cart-page-container,
+.cart-row-card,
+.cart-summary-card,
+.my-orders-container,
+.my-orders-card,
+.user-identity-banner,
+.auth-card,
+.auth-modal-card,
+.reviews-modal-card,
+.protected-access-card,
+.theme-toggle-btn,
+.chat-theme-btn {
+  transition: background-color 250ms ease, color 250ms ease, border-color 250ms ease, box-shadow 250ms ease;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--heading);
+  color: var(--text-dark);
+  margin-top: 0;
+}
+
+p {
+  margin: 0;
+}
+
+code,
+pre {
+  font-family: var(--mono);
+}
