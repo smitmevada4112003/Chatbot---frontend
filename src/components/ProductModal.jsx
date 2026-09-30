@@ -1,14 +1,16 @@
 import { useState, useEffect } from "react";
-import { Package, X, DollarSign, Tag } from "lucide-react";
+import { Package, X, IndianRupee, Tag } from "lucide-react";
 
 export default function ProductModal({ isOpen, mode = "add", product = null, onClose, onSave, isLoading }) {
   const [name, setName] = useState("");
   const [price, setPrice] = useState("");
   const [stock, setStock] = useState("10");
   const [errors, setErrors] = useState({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
+      setIsSubmitting(false);
       if (mode === "edit" && product) {
         setName(product.name || "");
         setPrice(product.price !== undefined ? String(product.price) : "");
@@ -23,6 +25,8 @@ export default function ProductModal({ isOpen, mode = "add", product = null, onC
   }, [isOpen, mode, product]);
 
   if (!isOpen) return null;
+
+  const isBusy = Boolean(isLoading || isSubmitting);
 
   function validate() {
     const newErrors = {};
@@ -41,15 +45,21 @@ export default function ProductModal({ isOpen, mode = "add", product = null, onC
     return Object.keys(newErrors).length === 0;
   }
 
-  function handleSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault();
+    if (isBusy) return;
     if (!validate()) return;
 
-    onSave({
-      name: name.trim(),
-      price: Math.round(Number(price)),
-      stock: Math.max(0, Math.round(Number(stock))),
-    });
+    setIsSubmitting(true);
+    try {
+      await onSave({
+        name: name.trim(),
+        price: Math.round(Number(price)),
+        stock: Math.max(0, Math.round(Number(stock))),
+      });
+    } catch {
+      setIsSubmitting(false);
+    }
   }
 
   return (
@@ -92,7 +102,7 @@ export default function ProductModal({ isOpen, mode = "add", product = null, onC
                   setName(e.target.value);
                   if (errors.name) setErrors({ ...errors, name: null });
                 }}
-                disabled={isLoading}
+                disabled={isBusy}
                 autoFocus
               />
               {errors.name && <span className="field-error">{errors.name}</span>}
@@ -100,7 +110,7 @@ export default function ProductModal({ isOpen, mode = "add", product = null, onC
 
             <div className="form-group">
               <label htmlFor="product-price" className="form-label">
-                <DollarSign size={15} /> Price (INR / USD)
+                <IndianRupee size={15} /> Price (INR)
               </label>
               <input
                 id="product-price"
@@ -114,7 +124,7 @@ export default function ProductModal({ isOpen, mode = "add", product = null, onC
                   setPrice(e.target.value);
                   if (errors.price) setErrors({ ...errors, price: null });
                 }}
-                disabled={isLoading}
+                disabled={isBusy}
               />
               {errors.price && <span className="field-error">{errors.price}</span>}
               <small className="form-hint">Enter the unit price as an integer.</small>
@@ -136,7 +146,7 @@ export default function ProductModal({ isOpen, mode = "add", product = null, onC
                   setStock(e.target.value);
                   if (errors.stock) setErrors({ ...errors, stock: null });
                 }}
-                disabled={isLoading}
+                disabled={isBusy}
               />
               {errors.stock && <span className="field-error">{errors.stock}</span>}
               <small className="form-hint">Units currently available in inventory.</small>
@@ -144,11 +154,11 @@ export default function ProductModal({ isOpen, mode = "add", product = null, onC
           </div>
 
           <div className="modal-actions">
-            <button type="button" className="btn btn-secondary" onClick={onClose} disabled={isLoading}>
+            <button type="button" className="btn btn-secondary" onClick={onClose} disabled={isBusy}>
               Cancel
             </button>
-            <button type="submit" className="btn btn-primary" disabled={isLoading}>
-              {isLoading ? "Saving..." : mode === "edit" ? "Save Changes" : "Create Product"}
+            <button type="submit" className="btn btn-primary" disabled={isBusy}>
+              {isBusy ? "Saving..." : mode === "edit" ? "Save Changes" : "Create Product"}
             </button>
           </div>
         </form>

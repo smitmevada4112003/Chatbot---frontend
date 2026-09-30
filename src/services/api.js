@@ -314,17 +314,28 @@ export const api = {
   },
 
   createOrder: async (orderData) => {
-    const res = await fetch(`${BASE_URL}/orders`, {
-      method: "POST",
-      headers: getAuthHeaders({ "Content-Type": "application/json" }),
-      body: JSON.stringify({
-        customer: orderData.customer.trim(),
-        product: orderData.product.trim(),
-        quantity: Number(orderData.quantity),
-        status: orderData.status || "Pending",
-      }),
-    });
-    return await handleResponse(res);
+    try {
+      const res = await fetch(`${BASE_URL}/orders`, {
+        method: "POST",
+        headers: getAuthHeaders({ "Content-Type": "application/json" }),
+        body: JSON.stringify({
+          customer: orderData.customer.trim(),
+          product: orderData.product.trim(),
+          quantity: Number(orderData.quantity),
+          status: orderData.status || "Pending",
+        }),
+      });
+      const data = await handleResponse(res);
+      if (data && data.status === "error") {
+        throw new Error(data.message || "Failed to create order");
+      }
+      return data;
+    } catch (err) {
+      if (err?.message === "Failed to fetch") {
+        throw new Error(`Cannot reach backend server at ${BASE_URL || window.location.origin}. Please verify it is running.`);
+      }
+      throw err;
+    }
   },
 
   updateOrder: async (id, orderData) => {

@@ -4,7 +4,7 @@ import {
   Package,
   ShoppingCart,
   TrendingUp,
-  DollarSign,
+  IndianRupee,
   Search,
   Plus,
   RefreshCw,
@@ -86,6 +86,22 @@ export default function AdminDashboard({ onOpenChatbot, addToast, onAddToCart, d
     }
   });
 
+  // Track recently toasted/chimed order IDs to strictly prevent duplicate notifications
+  const processedOrderIdsRef = React.useRef(new Set());
+  const soundEnabledRef = React.useRef(soundEnabled);
+  soundEnabledRef.current = soundEnabled;
+  const addToastRef = React.useRef(addToast);
+  addToastRef.current = addToast;
+
+  // Single WebSocket connection & timer refs to ensure strict singleton lifecycle
+  const wsRef = React.useRef(null);
+  const reconnectTimeoutRef = React.useRef(null);
+  const pingIntervalRef = React.useRef(null);
+
+  // Modal submission loading states to prevent rapid double-clicks
+  const [isOrderSubmitting, setIsOrderSubmitting] = useState(false);
+  const [isProductSubmitting, setIsProductSubmitting] = useState(false);
+
   // Auto-dismiss the live order notification banner after 5 seconds
   useEffect(() => {
     if (!liveBanner) return;
@@ -107,7 +123,7 @@ export default function AdminDashboard({ onOpenChatbot, addToast, onAddToCart, d
 
   // Synthesized web audio chime for instant feedback without external audio files
   const playOrderChime = useCallback(() => {
-    if (!soundEnabled) return;
+    if (!soundEnabledRef.current) return;
     try {
       const AudioCtx = window.AudioContext || window.webkitAudioContext;
       if (!AudioCtx) return;
@@ -140,7 +156,7 @@ export default function AdminDashboard({ onOpenChatbot, addToast, onAddToCart, d
     } catch (e) {
       // Audio autoplay may be disabled in certain environments
     }
-  }, [soundEnabled]);
+  }, []);
 
   // Orders filters and selection
   const [orderSearch, setOrderSearch] = useState("");
@@ -213,6 +229,11 @@ export default function AdminDashboard({ onOpenChatbot, addToast, onAddToCart, d
       }
 
       if (ordersRes.status === "fulfilled" && Array.isArray(ordersRes.value)) {
+        ordersRes.value.forEach((ord) => {
+          if (ord && ord.id != null) {
+            processedOrderIdsRef.current.add(ord.id);
+          }
+        });
         setOrders(ordersRes.value);
       } else {
         hasError = true;
@@ -239,31 +260,63 @@ export default function AdminDashboard({ onOpenChatbot, addToast, onAddToCart, d
 
   // Real-time WebSocket connection for live order updates
   useEffect(() => {
-    let ws = null;
-    let reconnectTimeout = null;
-    let pingInterval = null;
     let isDisposed = false;
+
+    const cleanupSocket = (socket) => {
+      if (!socket) return;
+      socket.onopen = null;
+      socket.onmessage = null;
+      socket.onerror = null;
+      socket.onclose = null;
+      if (
+        socket.readyState === WebSocket.OPEN ||
+        socket.readyState === WebSocket.CONNECTING
+      ) {
+        socket.close();
+      }
+    };
 
     const connectWebSocket = () => {
       if (isDisposed) return;
+
+      // Guard: Never open a second socket while one is already open or connecting
+      if (
+        wsRef.current &&
+        (wsRef.current.readyState === WebSocket.CONNECTING ||
+          wsRef.current.readyState === WebSocket.OPEN)
+      ) {
+        return;
+      }
+
+      // Cleanup any previous socket reference before creating a new one
+      if (wsRef.current) {
+        cleanupSocket(wsRef.current);
+        wsRef.current = null;
+      }
+
       try {
         const wsUrl = getWebSocketOrdersUrl();
         setWsStatus("connecting");
-        ws = new WebSocket(wsUrl);
+        const socket = new WebSocket(wsUrl);
+        wsRef.current = socket;
 
-        ws.onopen = () => {
-          if (isDisposed) return;
+        socket.onopen = () => {
+          if (isDisposed) {
+            cleanupSocket(socket);
+            return;
+          }
           setWsStatus("connected");
 
           // Keep-alive heartbeat ping every 25s
-          pingInterval = setInterval(() => {
-            if (ws && ws.readyState === WebSocket.OPEN) {
-              ws.send("ping");
+          if (pingIntervalRef.current) clearInterval(pingIntervalRef.current);
+          pingIntervalRef.current = setInterval(() => {
+            if (socket.readyState === WebSocket.OPEN) {
+              socket.send("ping");
             }
           }, 25000);
         };
 
-        ws.onmessage = (event) => {
+        socket.onmessage = (event) => {
           if (isDisposed) return;
           try {
             if (event.data === "pong") return;
@@ -271,14 +324,31 @@ export default function AdminDashboard({ onOpenChatbot, addToast, onAddToCart, d
             const { type, data } = message || {};
 
             if (type === "NEW_ORDER" && data) {
-              // 1. Add the new order to the top of the existing orders table in the UI state
-              // (without needing to re-fetch the whole list from the server)
+              const orderId = data.id;
+
+              // 2. De-duplicate incoming events: if already handled, ignore completely
+              if (orderId && processedOrderIdsRef.current.has(orderId)) {
+                return;
+              }
+
+              if (orderId) {
+                processedOrderIdsRef.current.add(orderId);
+                if (processedOrderIdsRef.current.size > 500) {
+                  const oldest = processedOrderIdsRef.current.values().next().value;
+                  processedOrderIdsRef.current.delete(oldest);
+                }
+              }
+
+              // 3. When adding to table state: merge or skip if existing instead of appending
               setOrders((prev) => {
-                const filtered = prev.filter((o) => o.id !== data.id);
-                return [data, ...filtered];
+                const exists = prev.some((o) => o.id === data.id);
+                if (exists) {
+                  return prev.map((o) => (o.id === data.id ? { ...o, ...data } : o));
+                }
+                return [data, ...prev];
               });
 
-              // 2. Update the summary cards (Total Orders count, status count) directly in UI state
+              // Update the summary cards directly in UI state
               setStats((prev) => {
                 const statusKey = (data.status || "Pending").trim();
                 const lower = statusKey.toLowerCase();
@@ -304,16 +374,16 @@ export default function AdminDashboard({ onOpenChatbot, addToast, onAddToCart, d
                 };
               });
 
-              // 3. Highlight newly arrived row with glowing animation
+              // Highlight newly arrived row with glowing animation
               setHighlightedOrderId(data.id);
               setTimeout(() => {
                 setHighlightedOrderId((current) => (current === data.id ? null : current));
               }, 5000);
 
-              // 4. Play audio chime
+              // Play audio chime ONCE
               playOrderChime();
 
-              // 5. Show small toast/notification banner that auto-dismisses after a few seconds
+              // Show small toast/notification banner that auto-dismisses after a few seconds
               const customerName = data.customer || "Customer";
               const productName = data.product || "Product";
               const bannerMsg = `🔔 New order from ${customerName} for ${productName}!`;
@@ -324,8 +394,8 @@ export default function AdminDashboard({ onOpenChatbot, addToast, onAddToCart, d
                 orderId: data.id,
               });
 
-              if (addToast) {
-                addToast(bannerMsg, "success");
+              if (addToastRef.current) {
+                addToastRef.current(bannerMsg, "success");
               }
             } else if (type === "ORDER_STATUS_UPDATED" && data) {
               setOrders((prev) =>
@@ -336,8 +406,8 @@ export default function AdminDashboard({ onOpenChatbot, addToast, onAddToCart, d
                   if (summary) setStats(summary);
                 })
                 .catch(() => {});
-              if (addToast) {
-                addToast(`Order #${data.id} status updated to ${data.status}`, "info");
+              if (addToastRef.current) {
+                addToastRef.current(`Order #${data.id} status updated to ${data.status}`, "info");
               }
             } else if (type === "ORDER_DELETED" && data) {
               const deletedIds = data.ids || (data.id ? [data.id] : []);
@@ -353,20 +423,30 @@ export default function AdminDashboard({ onOpenChatbot, addToast, onAddToCart, d
           }
         };
 
-        ws.onclose = () => {
+        socket.onclose = () => {
           if (isDisposed) return;
           setWsStatus("disconnected");
-          if (pingInterval) clearInterval(pingInterval);
-          reconnectTimeout = setTimeout(connectWebSocket, 3000);
+          if (pingIntervalRef.current) {
+            clearInterval(pingIntervalRef.current);
+            pingIntervalRef.current = null;
+          }
+          if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
+          reconnectTimeoutRef.current = setTimeout(connectWebSocket, 3000);
         };
 
-        ws.onerror = (err) => {
+        socket.onerror = () => {
           if (isDisposed) return;
-          if (ws) ws.close();
+          if (
+            socket.readyState === WebSocket.OPEN ||
+            socket.readyState === WebSocket.CONNECTING
+          ) {
+            socket.close();
+          }
         };
       } catch (err) {
         setWsStatus("disconnected");
-        reconnectTimeout = setTimeout(connectWebSocket, 3000);
+        if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
+        reconnectTimeoutRef.current = setTimeout(connectWebSocket, 3000);
       }
     };
 
@@ -374,14 +454,20 @@ export default function AdminDashboard({ onOpenChatbot, addToast, onAddToCart, d
 
     return () => {
       isDisposed = true;
-      if (pingInterval) clearInterval(pingInterval);
-      if (reconnectTimeout) clearTimeout(reconnectTimeout);
-      if (ws) {
-        ws.onclose = null;
-        ws.close();
+      if (pingIntervalRef.current) {
+        clearInterval(pingIntervalRef.current);
+        pingIntervalRef.current = null;
+      }
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+        reconnectTimeoutRef.current = null;
+      }
+      if (wsRef.current) {
+        cleanupSocket(wsRef.current);
+        wsRef.current = null;
       }
     };
-  }, [addToast, playOrderChime]);
+  }, [playOrderChime]);
 
   // Compute product price lookup map for fast calculations
   const productPriceMap = useMemo(() => {
@@ -528,6 +614,8 @@ export default function AdminDashboard({ onOpenChatbot, addToast, onAddToCart, d
 
   // Handlers for Products
   async function handleSaveProduct(productData) {
+    if (isProductSubmitting) return;
+    setIsProductSubmitting(true);
     try {
       if (productModal.mode === "add") {
         await api.createProduct(productData);
@@ -540,6 +628,8 @@ export default function AdminDashboard({ onOpenChatbot, addToast, onAddToCart, d
       fetchData(true);
     } catch (err) {
       addToast(err.message || "Failed to save product", "error");
+    } finally {
+      setIsProductSubmitting(false);
     }
   }
 
@@ -564,10 +654,16 @@ export default function AdminDashboard({ onOpenChatbot, addToast, onAddToCart, d
 
   // Handlers for Orders
   async function handleSaveOrder(orderData) {
+    if (isOrderSubmitting) return;
+    setIsOrderSubmitting(true);
     try {
       if (orderModal.mode === "add") {
-        await api.createOrder(orderData);
-        addToast("New customer order recorded!", "success");
+        const res = await api.createOrder(orderData);
+        if (res && res.order_id) {
+          // Pre-record this order ID so incoming WebSocket broadcast doesn't duplicate toast/sound
+          processedOrderIdsRef.current.add(res.order_id);
+        }
+        addToast("Order placed successfully!", "success");
       } else {
         await api.updateOrder(orderModal.order.id, orderData);
         addToast(`Order #${orderModal.order.id} updated successfully!`, "success");
@@ -576,6 +672,9 @@ export default function AdminDashboard({ onOpenChatbot, addToast, onAddToCart, d
       fetchData(true);
     } catch (err) {
       addToast(err.message || "Failed to save order", "error");
+      throw err;
+    } finally {
+      setIsOrderSubmitting(false);
     }
   }
 
@@ -808,7 +907,7 @@ export default function AdminDashboard({ onOpenChatbot, addToast, onAddToCart, d
             title="Sum of price x quantity for all orders joined with products table"
           >
             <div className="kpi-icon-wrapper kpi-icon-amber">
-              <DollarSign size={24} />
+              <IndianRupee size={24} />
             </div>
             <div className="kpi-info">
               <span className="kpi-label">Total Revenue</span>
@@ -1798,6 +1897,7 @@ export default function AdminDashboard({ onOpenChatbot, addToast, onAddToCart, d
         product={productModal.product}
         onClose={() => setProductModal({ isOpen: false, mode: "add", product: null })}
         onSave={handleSaveProduct}
+        isLoading={isProductSubmitting}
       />
 
       {/* Order Modal (Add / Edit) */}
@@ -1808,6 +1908,7 @@ export default function AdminDashboard({ onOpenChatbot, addToast, onAddToCart, d
         products={products}
         onClose={() => setOrderModal({ isOpen: false, mode: "add", order: null })}
         onSave={handleSaveOrder}
+        isLoading={isOrderSubmitting}
       />
 
       {/* Confirmation Modal (Delete) */}

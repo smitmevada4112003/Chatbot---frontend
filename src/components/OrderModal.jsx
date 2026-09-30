@@ -1,5 +1,5 @@
-import { useState, useEffect, useMemo } from "react";
-import { ShoppingCart, X, User, Package, Hash, Clock } from "lucide-react";
+import { useState, useEffect, useMemo, useRef } from "react";
+import { ShoppingCart, X, User, Package, Hash, Clock, AlertCircle, Loader2 } from "lucide-react";
 
 const STATUS_OPTIONS = ["Pending", "Completed", "Cancelled", "Processing", "Shipped", "Delivered"];
 
@@ -17,9 +17,15 @@ export default function OrderModal({
   const [quantity, setQuantity] = useState("1");
   const [status, setStatus] = useState("Pending");
   const [errors, setErrors] = useState({});
+  const [submitError, setSubmitError] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const isSubmittingRef = useRef(false);
 
   useEffect(() => {
     if (isOpen) {
+      setIsSubmitting(false);
+      isSubmittingRef.current = false;
+      setSubmitError(null);
       if (mode === "edit" && order) {
         setCustomer(order.customer || "");
         setProductName(order.product || "");
@@ -52,6 +58,8 @@ export default function OrderModal({
 
   if (!isOpen) return null;
 
+  const isBusy = Boolean(isLoading || isSubmitting);
+
   function validate() {
     const newErrors = {};
     if (!customer.trim()) {
@@ -68,16 +76,33 @@ export default function OrderModal({
     return Object.keys(newErrors).length === 0;
   }
 
-  function handleSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault();
+    // Guard against duplicate clicks or rapid double-submissions
+    if (isSubmittingRef.current || isBusy) return;
     if (!validate()) return;
 
-    onSave({
-      customer: customer.trim(),
-      product: productName.trim(),
-      quantity: parseInt(quantity, 10),
-      status,
-    });
+    isSubmittingRef.current = true;
+    setIsSubmitting(true);
+    setSubmitError(null);
+
+    try {
+      await onSave({
+        customer: customer.trim(),
+        product: productName.trim(),
+        quantity: parseInt(quantity, 10),
+        status,
+      });
+    } catch (err) {
+      const errorMsg =
+        err?.message === "Failed to fetch"
+          ? "Unable to connect to backend server. Please ensure the backend is running."
+          : (err?.message || "Failed to place order. Please try again.");
+      setSubmitError(errorMsg);
+    } finally {
+      setIsSubmitting(false);
+      isSubmittingRef.current = false;
+    }
   }
 
   return (
@@ -106,6 +131,29 @@ export default function OrderModal({
 
         <form onSubmit={handleSubmit}>
           <div className="modal-body form-body">
+            {/* Global Submit Error Notice */}
+            {submitError && (
+              <div
+                className="modal-alert-error"
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "10px",
+                  background: "rgba(239, 68, 68, 0.12)",
+                  border: "1px solid rgba(239, 68, 68, 0.35)",
+                  color: "#ef4444",
+                  padding: "10px 14px",
+                  borderRadius: "10px",
+                  fontSize: "13px",
+                  marginBottom: "16px",
+                  lineHeight: 1.4,
+                }}
+              >
+                <AlertCircle size={18} style={{ flexShrink: 0 }} />
+                <span>{submitError}</span>
+              </div>
+            )}
+
             {/* Customer Name */}
             <div className="form-group">
               <label htmlFor="order-customer" className="form-label">
@@ -120,8 +168,9 @@ export default function OrderModal({
                 onChange={(e) => {
                   setCustomer(e.target.value);
                   if (errors.customer) setErrors({ ...errors, customer: null });
+                  if (submitError) setSubmitError(null);
                 }}
-                disabled={isLoading}
+                disabled={isBusy}
                 autoFocus
               />
               {errors.customer && <span className="field-error">{errors.customer}</span>}
@@ -141,8 +190,9 @@ export default function OrderModal({
                     onChange={(e) => {
                       setProductName(e.target.value);
                       if (errors.product) setErrors({ ...errors, product: null });
+                      if (submitError) setSubmitError(null);
                     }}
-                    disabled={isLoading}
+                    disabled={isBusy}
                   >
                     <option value="">-- Select a Product from Catalog --</option>
                     {products.map((p) => (
@@ -162,8 +212,9 @@ export default function OrderModal({
                   onChange={(e) => {
                     setProductName(e.target.value);
                     if (errors.product) setErrors({ ...errors, product: null });
+                    if (submitError) setSubmitError(null);
                   }}
-                  disabled={isLoading}
+                  disabled={isBusy}
                 />
               )}
               {errors.product && <span className="field-error">{errors.product}</span>}
@@ -183,7 +234,7 @@ export default function OrderModal({
                       const cur = parseInt(quantity, 10) || 1;
                       if (cur > 1) setQuantity(String(cur - 1));
                     }}
-                    disabled={isLoading || parseInt(quantity, 10) <= 1}
+                    disabled={isBusy || parseInt(quantity, 10) <= 1}
                   >
                     -
                   </button>
@@ -196,8 +247,9 @@ export default function OrderModal({
                     onChange={(e) => {
                       setQuantity(e.target.value);
                       if (errors.quantity) setErrors({ ...errors, quantity: null });
+                      if (submitError) setSubmitError(null);
                     }}
-                    disabled={isLoading}
+                    disabled={isBusy}
                   />
                   <button
                     type="button"
@@ -206,7 +258,7 @@ export default function OrderModal({
                       const cur = parseInt(quantity, 10) || 1;
                       setQuantity(String(cur + 1));
                     }}
-                    disabled={isLoading}
+                    disabled={isBusy}
                   >
                     +
                   </button>
@@ -223,7 +275,7 @@ export default function OrderModal({
                   className="form-input"
                   value={status}
                   onChange={(e) => setStatus(e.target.value)}
-                  disabled={isLoading}
+                  disabled={isBusy}
                 >
                   {STATUS_OPTIONS.map((st) => (
                     <option key={st} value={st}>
@@ -255,11 +307,18 @@ export default function OrderModal({
           </div>
 
           <div className="modal-actions">
-            <button type="button" className="btn btn-secondary" onClick={onClose} disabled={isLoading}>
+            <button type="button" className="btn btn-secondary" onClick={onClose} disabled={isBusy}>
               Cancel
             </button>
-            <button type="submit" className="btn btn-primary" disabled={isLoading}>
-              {isLoading ? "Saving..." : mode === "edit" ? "Save Order" : "Place Order"}
+            <button type="submit" className="btn btn-primary" disabled={isBusy} style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+              {isBusy ? (
+                <>
+                  <Loader2 size={15} className="spin" />
+                  <span>{mode === "edit" ? "Saving..." : "Placing order..."}</span>
+                </>
+              ) : (
+                mode === "edit" ? "Save Order" : "Place Order"
+              )}
             </button>
           </div>
         </form>

@@ -23,6 +23,7 @@ export default function Cart({ onCartUpdated }) {
   const [loading, setLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState(null);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
+  const checkoutRef = React.useRef(false);
   const [error, setError] = useState(null);
   const [successOrder, setSuccessOrder] = useState(null);
 
@@ -35,12 +36,13 @@ export default function Cart({ onCartUpdated }) {
       setLoading(true);
       setError(null);
       const data = await api.getCart();
-      setCart({
+      const updated = {
         items: data.items || [],
         total_items: data.total_items || 0,
         total_price: data.total_price || data.total_amount || 0,
-      });
-      if (onCartUpdated) onCartUpdated();
+      };
+      setCart(updated);
+      if (onCartUpdated) onCartUpdated(updated);
     } catch (err) {
       console.error("Failed to load cart:", err);
       setError(err.message || "Could not load shopping cart.");
@@ -53,7 +55,7 @@ export default function Cart({ onCartUpdated }) {
     fetchCart();
   }, [fetchCart]);
 
-  // Update item quantity via PUT /cart/{item_id}
+  // Update item quantity via PUT /cart/{item_id} with Optimistic UI
   const handleQuantityChange = async (itemId, currentQty, delta, maxStock) => {
     const newQty = currentQty + delta;
     if (newQty < 1) return;
@@ -62,34 +64,83 @@ export default function Cart({ onCartUpdated }) {
       return;
     }
 
+    // Save previous state for rollback on error
+    const previousCart = cart;
+
+    // Immediately update UI state (Optimistic Update)
+    const updatedItems = cart.items.map((item) => {
+      const id = item.item_id || item.id;
+      if (id === itemId || item.product_id === itemId) {
+        const itemPrice = Number(item.price) || 0;
+        return {
+          ...item,
+          quantity: newQty,
+          subtotal: Math.round(newQty * itemPrice * 100) / 100,
+        };
+      }
+      return item;
+    });
+
+    const newTotalItems = updatedItems.reduce((acc, curr) => acc + curr.quantity, 0);
+    const newTotalPrice = Math.round(
+      updatedItems.reduce((acc, curr) => acc + (Number(curr.subtotal) || 0), 0) * 100
+    ) / 100;
+
+    const optimisticCart = {
+      items: updatedItems,
+      total_items: newTotalItems,
+      total_price: newTotalPrice,
+      total_amount: newTotalPrice,
+    };
+
+    setCart(optimisticCart);
+    if (onCartUpdated) onCartUpdated(optimisticCart);
+
     try {
-      setUpdatingId(itemId);
       setError(null);
       await api.updateCartItem(itemId, newQty);
-      await fetchCart();
     } catch (err) {
+      // Revert if API fails
+      setCart(previousCart);
+      if (onCartUpdated) onCartUpdated(previousCart);
       setError(err.message || "Failed to update item quantity.");
-    } finally {
-      setUpdatingId(null);
     }
   };
 
-  // Remove item via DELETE /cart/{item_id}
+  // Remove item via DELETE /cart/{item_id} with Optimistic UI
   const handleRemoveItem = async (itemId) => {
+    const previousCart = cart;
+    const updatedItems = cart.items.filter(
+      (item) => (item.item_id || item.id) !== itemId && item.product_id !== itemId
+    );
+    const newTotalItems = updatedItems.reduce((acc, curr) => acc + curr.quantity, 0);
+    const newTotalPrice = Math.round(
+      updatedItems.reduce((acc, curr) => acc + (Number(curr.subtotal) || 0), 0) * 100
+    ) / 100;
+
+    const optimisticCart = {
+      items: updatedItems,
+      total_items: newTotalItems,
+      total_price: newTotalPrice,
+      total_amount: newTotalPrice,
+    };
+
+    setCart(optimisticCart);
+    if (onCartUpdated) onCartUpdated(optimisticCart);
+
     try {
-      setUpdatingId(itemId);
       setError(null);
       await api.removeFromCart(itemId);
-      await fetchCart();
     } catch (err) {
+      setCart(previousCart);
+      if (onCartUpdated) onCartUpdated(previousCart);
       setError(err.message || "Failed to remove item.");
-    } finally {
-      setUpdatingId(null);
     }
   };
 
   // Checkout via POST /cart/checkout
   const handleCheckout = async () => {
+    if (checkoutRef.current || checkoutLoading) return;
     if (!authStorage.getToken()) {
       navigate("/login");
       return;
@@ -99,6 +150,7 @@ export default function Cart({ onCartUpdated }) {
       return;
     }
 
+    checkoutRef.current = true;
     try {
       setCheckoutLoading(true);
       setError(null);
@@ -114,6 +166,7 @@ export default function Cart({ onCartUpdated }) {
       setError(err.message || "Checkout failed. Please check product stock and try again.");
     } finally {
       setCheckoutLoading(false);
+      checkoutRef.current = false;
     }
   };
 
@@ -149,7 +202,7 @@ export default function Cart({ onCartUpdated }) {
           <div className="success-content">
             <h3>🎉 Order #{successOrder.order_id} Placed Successfully!</h3>
             <p>
-              Thank you for your order! Total paid: ${Number(successOrder.total_amount).toFixed(2)}. Redirecting to your Orders page...
+              Thank you for your order! Total paid: ₹{Number(successOrder.total_amount).toFixed(2)}. Redirecting to your Orders page...
             </p>
           </div>
         </div>
@@ -204,7 +257,7 @@ export default function Cart({ onCartUpdated }) {
                         <h3 className="cart-product-name">{item.product_name}</h3>
                         <div className="cart-product-pricing">
                           <span className="cart-price-tag">
-                            ${Number(item.price).toFixed(2)}
+                            ₹{Number(item.price).toFixed(2)}
                           </span>
                           {item.stock <= 5 && (
                             <span className="cart-stock-warning">
@@ -252,7 +305,7 @@ export default function Cart({ onCartUpdated }) {
                     </div>
 
                     <div className="cart-row-subtotal">
-                      ${Number(item.subtotal).toFixed(2)}
+                      ₹{Number(item.subtotal).toFixed(2)}
                     </div>
                   </div>
                 );
@@ -267,7 +320,7 @@ export default function Cart({ onCartUpdated }) {
 
               <div className="summary-line">
                 <span className="summary-label">Items Subtotal</span>
-                <span className="summary-value">${Number(cart.total_price).toFixed(2)}</span>
+                <span className="summary-value">₹{Number(cart.total_price).toFixed(2)}</span>
               </div>
 
               <div className="summary-line">
@@ -277,7 +330,7 @@ export default function Cart({ onCartUpdated }) {
 
               <div className="summary-line">
                 <span className="summary-label">Estimated Taxes</span>
-                <span className="summary-value">$0.00</span>
+                <span className="summary-value">₹0.00</span>
               </div>
 
               <div className="summary-separator"></div>
@@ -285,7 +338,7 @@ export default function Cart({ onCartUpdated }) {
               <div className="summary-line total-line">
                 <span className="summary-total-label">Total Amount</span>
                 <span className="summary-total-value">
-                  ${Number(cart.total_price).toFixed(2)}
+                  ₹{Number(cart.total_price).toFixed(2)}
                 </span>
               </div>
 
@@ -303,7 +356,7 @@ export default function Cart({ onCartUpdated }) {
                 ) : (
                   <>
                     <CreditCard size={18} />
-                    <span>Checkout (${Number(cart.total_price).toFixed(2)})</span>
+                    <span>Checkout (₹{Number(cart.total_price).toFixed(2)})</span>
                     <ArrowRight size={18} />
                   </>
                 )}

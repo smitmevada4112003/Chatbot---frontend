@@ -146,9 +146,13 @@ function AppContent() {
   const [cartData, setCartData] = useState({ items: [], total_items: 0, total_amount: 0 });
   const [cartLoading, setCartLoading] = useState(false);
 
-  const fetchCart = useCallback(async () => {
+  const fetchCart = useCallback(async (incomingData = null) => {
     if (!authStorage.getToken()) {
       setCartData({ items: [], total_items: 0, total_amount: 0 });
+      return;
+    }
+    if (incomingData && Array.isArray(incomingData.items)) {
+      setCartData(incomingData);
       return;
     }
     try {
@@ -183,20 +187,64 @@ function AppContent() {
   };
 
   const handleUpdateQuantity = async (productId, newQuantity) => {
+    const previous = cartData;
+    // Optimistic update for CartDrawer
+    const updatedItems = cartData.items.map((item) => {
+      const pid = item.product_id || item.id || item.item_id;
+      if (pid === productId) {
+        const p = Number(item.price) || 0;
+        return {
+          ...item,
+          quantity: newQuantity,
+          subtotal: Math.round(newQuantity * p * 100) / 100,
+        };
+      }
+      return item;
+    });
+
+    const newTotal = updatedItems.reduce((acc, curr) => acc + curr.quantity, 0);
+    const newAmount = Math.round(
+      updatedItems.reduce((acc, curr) => acc + (Number(curr.subtotal) || 0), 0) * 100
+    ) / 100;
+
+    setCartData({
+      items: updatedItems,
+      total_items: newTotal,
+      total_amount: newAmount,
+      total_price: newAmount,
+    });
+
     try {
       await api.updateCartItem(productId, newQuantity);
-      await fetchCart();
     } catch (err) {
+      setCartData(previous);
       addToast(err.message || "Failed to update quantity", "error");
     }
   };
 
   const handleRemoveFromCart = async (productId) => {
+    const previous = cartData;
+    // Optimistic update
+    const updatedItems = cartData.items.filter(
+      (item) => (item.product_id || item.id || item.item_id) !== productId
+    );
+    const newTotal = updatedItems.reduce((acc, curr) => acc + curr.quantity, 0);
+    const newAmount = Math.round(
+      updatedItems.reduce((acc, curr) => acc + (Number(curr.subtotal) || 0), 0) * 100
+    ) / 100;
+
+    setCartData({
+      items: updatedItems,
+      total_items: newTotal,
+      total_amount: newAmount,
+      total_price: newAmount,
+    });
+
     try {
       await api.removeFromCart(productId);
       addToast("Item removed from cart.", "info");
-      await fetchCart();
     } catch (err) {
+      setCartData(previous);
       addToast(err.message || "Failed to remove item", "error");
     }
   };
@@ -355,11 +403,6 @@ function AppContent() {
               )}
             </div>
 
-            <div className={`live-indicator ${backendStatus === "online" ? "online" : "offline"}`}>
-              <span className="pulse-dot" />
-              <span>{backendStatus === "online" ? "FastAPI Online" : "Connecting..."}</span>
-            </div>
-
             {/* Dark Mode Toggle Button */}
             <button
               className="theme-toggle-btn"
@@ -500,10 +543,6 @@ function AppContent() {
                   <span>{darkMode ? "Light Mode" : "Dark Mode"}</span>
                 </button>
 
-                <div className={`live-indicator ${backendStatus === "online" ? "online" : "offline"}`}>
-                  <span className="pulse-dot" />
-                  <span>{backendStatus === "online" ? "FastAPI Online" : "Connecting..."}</span>
-                </div>
                 <a
                   href="/docs"
                   target="_blank"

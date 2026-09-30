@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import {
   X,
   ShoppingBag,
@@ -25,6 +25,7 @@ export default function CartDrawer({
   onNavigateToLogin,
 }) {
   const [checkingOut, setCheckingOut] = useState(false);
+  const isCheckingOutRef = useRef(false);
   const [errorMessage, setErrorMessage] = useState(null);
   const [successInfo, setSuccessInfo] = useState(null);
 
@@ -35,10 +36,12 @@ export default function CartDrawer({
   const totalAmount = cartData?.total_amount || 0;
 
   const handleCheckoutClick = async () => {
+    if (isCheckingOutRef.current || checkingOut) return;
     if (!isLoggedIn) {
       if (onNavigateToLogin) onNavigateToLogin();
       return;
     }
+    isCheckingOutRef.current = true;
     setErrorMessage(null);
     setSuccessInfo(null);
     setCheckingOut(true);
@@ -49,6 +52,7 @@ export default function CartDrawer({
       setErrorMessage(err.message || "Checkout failed. Please try again.");
     } finally {
       setCheckingOut(false);
+      isCheckingOutRef.current = false;
     }
   };
 
@@ -134,7 +138,7 @@ export default function CartDrawer({
 
                       <div className="cart-item-pricing">
                         <span className="cart-unit-price">
-                          ${Number(item.price).toFixed(2)} each
+                          ₹{Number(item.price).toFixed(2)} each
                         </span>
                         {item.stock <= 5 && (
                           <span className="cart-low-stock-tag">
@@ -172,7 +176,7 @@ export default function CartDrawer({
 
                         {/* Line Subtotal */}
                         <div className="cart-item-subtotal">
-                          ${Number(item.subtotal).toFixed(2)}
+                          ₹{Number(item.subtotal).toFixed(2)}
                         </div>
                       </div>
                     </div>
@@ -189,7 +193,7 @@ export default function CartDrawer({
             <div className="cart-summary-card">
               <div className="summary-row">
                 <span className="summary-label">Items Subtotal</span>
-                <span className="summary-val">${totalAmount.toFixed(2)}</span>
+                <span className="summary-val">₹{totalAmount.toFixed(2)}</span>
               </div>
               <div className="summary-row">
                 <span className="summary-label">Shipping & Handling</span>
@@ -198,7 +202,7 @@ export default function CartDrawer({
               <div className="summary-divider"></div>
               <div className="summary-row total-row">
                 <span className="total-label">Total Amount</span>
-                <span className="total-val">${totalAmount.toFixed(2)}</span>
+                <span className="total-val">₹{totalAmount.toFixed(2)}</span>
               </div>
             </div>
 
