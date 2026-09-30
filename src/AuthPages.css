@@ -61,7 +61,7 @@
 
 /* Demo Admin Box */
 .auth-demo-box {
-  margin: 0 28px 8px 28px;
+  margin: 0 28px 12px 28px;
   background: var(--success-subtle);
   border: 1px solid var(--success-border);
   border-radius: 10px;

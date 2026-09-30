@@ -130,11 +130,15 @@ export const api = {
     return data;
   },
 
-  signup: async (email, password) => {
+  signup: async (email, password, name) => {
     const res = await fetch(`${BASE_URL}/signup`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: email.trim(), password }),
+      body: JSON.stringify({
+        email: email.trim(),
+        password: password.trim(),
+        name: name ? name.trim() : undefined,
+      }),
     });
     return await handleResponse(res);
   },

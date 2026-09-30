@@ -28,6 +28,7 @@ import {
   Moon,
 } from "lucide-react";
 import CartDrawer from "./components/CartDrawer";
+import ProtectedRoute from "./components/ProtectedRoute";
 import { useTheme } from "./ThemeContext";
 import "./App.css";
 
@@ -57,6 +58,8 @@ function AppContent() {
     location.pathname === "/reset-password" ||
     location.pathname === "/verify-email";
   const isLoggedIn = Boolean(currentUser && (currentUser.email || authStorage.getToken()));
+  const isAdmin = Boolean(currentUser?.role === "admin" || (isLoggedIn && authStorage.isAdmin()));
+  const brandHomeLink = isAdmin ? "/admin" : "/chat";
 
   // Central Toast system
   const addToast = useCallback((message, type = "success") => {
@@ -266,24 +269,21 @@ function AppContent() {
     return res;
   };
 
-  // Guard for Admin Dashboard route
+  // Route guard wrapper for Admin Dashboard route
   const renderAdminRoute = () => {
-    const token = localStorage.getItem("authToken");
-    const role = localStorage.getItem("userRole");
-
-    // If missing token or not admin, redirect to Login page
-    if (!token || role !== "admin") {
-      return <Navigate to="/login" replace />;
-    }
-
     return (
-      <AdminDashboard
-        onOpenChatbot={() => navigate("/chat")}
-        addToast={addToast}
-        onAddToCart={handleAddToCart}
-        darkMode={darkMode}
-        onToggleTheme={toggleDarkMode}
-      />
+      <ProtectedRoute
+        user={currentUser}
+        onOpenAuth={() => navigate("/login")}
+      >
+        <AdminDashboard
+          onOpenChatbot={() => navigate("/chat")}
+          addToast={addToast}
+          onAddToCart={handleAddToCart}
+          darkMode={darkMode}
+          onToggleTheme={toggleDarkMode}
+        />
+      </ProtectedRoute>
     );
   };
 
@@ -303,7 +303,7 @@ function AppContent() {
               {mobileMenuOpen ? <X size={22} /> : <Menu size={22} />}
             </button>
 
-            <Link to="/admin" className="nav-brand" style={{ textDecoration: "none" }}>
+            <Link to={brandHomeLink} className="nav-brand" style={{ textDecoration: "none" }}>
               <div className="brand-icon-box">
                 <Layers size={22} />
               </div>
@@ -316,45 +316,58 @@ function AppContent() {
             </Link>
           </div>
 
-          {/* Desktop Navigation Bar: Links to "Chat", "My Orders" (if logged in), and "Admin Dashboard" */}
+          {/* Desktop Navigation Bar: Role-based links */}
           <nav className="desktop-navbar">
-            <Link
-              to="/chat"
-              className={`nav-link-btn ${!isCurrentAdmin && !isAuthPage && !isMyOrdersPage ? "active" : ""}`}
-            >
-              <MessageSquare size={17} />
-              <span>Chat</span>
-            </Link>
+            {isAdmin ? (
+              <>
+                <Link
+                  to="/admin"
+                  className={`nav-link-btn ${isCurrentAdmin ? "active" : ""}`}
+                >
+                  <LayoutDashboard size={17} />
+                  <span>Admin Dashboard</span>
+                </Link>
+                <Link
+                  to="/chat"
+                  className={`nav-link-btn ${!isCurrentAdmin && !isAuthPage && !isMyOrdersPage && !isCartPage ? "active" : ""}`}
+                >
+                  <MessageSquare size={17} />
+                  <span>Chatbot</span>
+                </Link>
+              </>
+            ) : (
+              <>
+                <Link
+                  to="/chat"
+                  className={`nav-link-btn ${!isCurrentAdmin && !isAuthPage && !isMyOrdersPage && !isCartPage ? "active" : ""}`}
+                >
+                  <MessageSquare size={17} />
+                  <span>Chatbot</span>
+                </Link>
 
-            {isLoggedIn && (
-              <Link
-                to="/my-orders"
-                className={`nav-link-btn ${isMyOrdersPage ? "active" : ""}`}
-              >
-                <ShoppingBag size={17} />
-                <span>My Orders</span>
-              </Link>
+                {isLoggedIn && (
+                  <Link
+                    to="/my-orders"
+                    className={`nav-link-btn ${isMyOrdersPage ? "active" : ""}`}
+                  >
+                    <ShoppingBag size={17} />
+                    <span>My Orders</span>
+                  </Link>
+                )}
+
+                <Link
+                  to="/cart"
+                  className={`nav-link-btn ${isCartPage ? "active" : ""}`}
+                  title="Shopping Cart"
+                >
+                  <ShoppingCart size={17} />
+                  <span>Cart</span>
+                  {cartData.total_items > 0 && (
+                    <span className="cart-badge-counter">{cartData.total_items}</span>
+                  )}
+                </Link>
+              </>
             )}
-
-            <Link
-              to="/admin"
-              className={`nav-link-btn ${isCurrentAdmin ? "active" : ""}`}
-            >
-              <LayoutDashboard size={17} />
-              <span>Admin Dashboard</span>
-            </Link>
-
-            <Link
-              to="/cart"
-              className={`nav-link-btn ${isCartPage ? "active" : ""}`}
-              title="Shopping Cart"
-            >
-              <ShoppingCart size={17} />
-              <span>Cart</span>
-              {cartData.total_items > 0 && (
-                <span className="cart-badge-counter">{cartData.total_items}</span>
-              )}
-            </Link>
           </nav>
 
           {/* Right Tools: User Profile, Logout Button, Backend Status & Docs */}
@@ -494,41 +507,59 @@ function AppContent() {
                 )}
               </div>
 
+              {/* Mobile Role-Based Navigation Links */}
               <div className="mobile-nav-links">
-                <Link
-                  to="/chat"
-                  className={`mobile-nav-item ${!isCurrentAdmin && !isAuthPage && !isMyOrdersPage ? "active" : ""}`}
-                >
-                  <MessageSquare size={19} />
-                  <span>Chat</span>
-                </Link>
+                {isAdmin ? (
+                  <>
+                    <Link
+                      to="/admin"
+                      className={`mobile-nav-item ${isCurrentAdmin ? "active" : ""}`}
+                      onClick={() => setMobileMenuOpen(false)}
+                    >
+                      <LayoutDashboard size={19} />
+                      <span>Admin Dashboard</span>
+                    </Link>
+                    <Link
+                      to="/chat"
+                      className={`mobile-nav-item ${!isCurrentAdmin && !isAuthPage && !isMyOrdersPage && !isCartPage ? "active" : ""}`}
+                      onClick={() => setMobileMenuOpen(false)}
+                    >
+                      <MessageSquare size={19} />
+                      <span>Chatbot</span>
+                    </Link>
+                  </>
+                ) : (
+                  <>
+                    <Link
+                      to="/chat"
+                      className={`mobile-nav-item ${!isCurrentAdmin && !isAuthPage && !isMyOrdersPage && !isCartPage ? "active" : ""}`}
+                      onClick={() => setMobileMenuOpen(false)}
+                    >
+                      <MessageSquare size={19} />
+                      <span>Chatbot</span>
+                    </Link>
 
-                {isLoggedIn && (
-                  <Link
-                    to="/my-orders"
-                    className={`mobile-nav-item ${isMyOrdersPage ? "active" : ""}`}
-                  >
-                    <ShoppingBag size={19} />
-                    <span>My Orders</span>
-                  </Link>
+                    {isLoggedIn && (
+                      <Link
+                        to="/my-orders"
+                        className={`mobile-nav-item ${isMyOrdersPage ? "active" : ""}`}
+                        onClick={() => setMobileMenuOpen(false)}
+                      >
+                        <ShoppingBag size={19} />
+                        <span>My Orders</span>
+                      </Link>
+                    )}
+
+                    <Link
+                      to="/cart"
+                      className={`mobile-nav-item ${isCartPage ? "active" : ""}`}
+                      onClick={() => setMobileMenuOpen(false)}
+                    >
+                      <ShoppingCart size={19} />
+                      <span>Cart ({cartData.total_items})</span>
+                    </Link>
+                  </>
                 )}
-
-                <Link
-                  to="/admin"
-                  className={`mobile-nav-item ${isCurrentAdmin ? "active" : ""}`}
-                >
-                  <LayoutDashboard size={19} />
-                  <span>Admin Dashboard</span>
-                </Link>
-
-                <Link
-                  to="/cart"
-                  className={`mobile-nav-item ${isCartPage ? "active" : ""}`}
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  <ShoppingCart size={19} />
-                  <span>Cart ({cartData.total_items})</span>
-                </Link>
               </div>
 
               <div className="mobile-drawer-footer">
@@ -598,7 +629,7 @@ function AppContent() {
             isLoggedIn ? (
               <MyOrders onOpenChatbot={() => navigate("/chat")} />
             ) : (
-              <Navigate to="/login" replace />
+              <Navigate to="/login" state={{ from: location }} replace />
             )
           }
         />
@@ -625,50 +656,32 @@ function AppContent() {
                 <p>
                   Query catalog inventory, check order fulfillment, or place new orders live with the AI assistant.
                 </p>
-                <div style={{ marginTop: "14px" }}>
-                  <Link
-                    to="/admin"
-                    className="btn btn-primary btn-sm"
-                    style={{ textDecoration: "none", display: "inline-flex", gap: "8px" }}
-                  >
-                    <LayoutDashboard size={15} />
-                    <span>Go to Admin Dashboard</span>
-                  </Link>
-                </div>
+                {isAdmin && (
+                  <div style={{ marginTop: "14px" }}>
+                    <Link
+                      to="/admin"
+                      className="btn btn-primary btn-sm"
+                      style={{ textDecoration: "none", display: "inline-flex", gap: "8px" }}
+                    >
+                      <LayoutDashboard size={15} />
+                      <span>Go to Admin Dashboard</span>
+                    </Link>
+                  </div>
+                )}
               </div>
               <ChatBot darkMode={darkMode} onToggleTheme={toggleDarkMode} />
             </div>
           }
         />
 
-        {/* / - Default route to Chat */}
+        {/* / - Default route redirects to primary landing view per role */}
         <Route
           path="/"
-          element={
-            <div className="chatbot-view-wrapper">
-              <div className="chatbot-intro-header">
-                <h2>Product & Order Assistant</h2>
-                <p>
-                  Query catalog inventory, check order fulfillment, or place new orders live with the AI assistant.
-                </p>
-                <div style={{ marginTop: "14px" }}>
-                  <Link
-                    to="/admin"
-                    className="btn btn-primary btn-sm"
-                    style={{ textDecoration: "none", display: "inline-flex", gap: "8px" }}
-                  >
-                    <LayoutDashboard size={15} />
-                    <span>Go to Admin Dashboard</span>
-                  </Link>
-                </div>
-              </div>
-              <ChatBot darkMode={darkMode} onToggleTheme={toggleDarkMode} />
-            </div>
-          }
+          element={<Navigate to={isAdmin ? "/admin" : "/chat"} replace />}
         />
 
-        {/* Fallback to /admin */}
-        <Route path="*" element={<Navigate to="/admin" replace />} />
+        {/* Fallback route */}
+        <Route path="*" element={<Navigate to={isAdmin ? "/admin" : "/chat"} replace />} />
       </Routes>
 
       {/* Floating Shortcut to Chat when on /admin */}

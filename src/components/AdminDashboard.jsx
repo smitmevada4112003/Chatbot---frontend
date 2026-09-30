@@ -55,12 +55,14 @@ export default function AdminDashboard({ onOpenChatbot, addToast, onAddToCart, d
   const isDark = propDarkMode !== undefined ? propDarkMode : themeContext.isDark;
   const toggleTheme = propToggleTheme || themeContext.toggleTheme;
 
-  // Check for valid token and admin role on load; redirect to /login if missing/invalid
+  // Check for valid token and admin role on load; redirect if unauthorized
   useEffect(() => {
     const token = localStorage.getItem("authToken");
     const role = localStorage.getItem("userRole");
-    if (!token || role !== "admin") {
+    if (!token) {
       navigate("/login");
+    } else if (role !== "admin") {
+      navigate("/chat");
     }
   }, [navigate]);
   // Navigation tabs within Admin Dashboard
@@ -206,53 +208,74 @@ export default function AdminDashboard({ onOpenChatbot, addToast, onAddToCart, d
     }
   };
 
-  // Fetch all data
+  // Fetch all data progressively
   const fetchData = useCallback(async (isSilent = false) => {
-    if (!isSilent) setLoading(true);
-    else setRefreshing(true);
+    // Only show full loader if there is no data at all yet
+    if (!isSilent && orders.length === 0 && products.length === 0) {
+      setLoading(true);
+    } else {
+      setRefreshing(true);
+    }
     setDbError(null);
 
+    let hasError = false;
+
+    // Fetch orders, products, and summary in parallel, updating state as each arrives
+    const fetchOrdersPromise = api.getOrders()
+      .then((data) => {
+        if (Array.isArray(data)) {
+          data.forEach((ord) => {
+            if (ord && ord.id != null) {
+              processedOrderIdsRef.current.add(ord.id);
+            }
+          });
+          setOrders(data);
+        }
+      })
+      .catch((err) => {
+        console.warn("[Orders fetch error]:", err);
+        hasError = true;
+      })
+      .finally(() => {
+        // As soon as orders are fetched, dismiss full table loader immediately
+        setLoading(false);
+      });
+
+    const fetchProductsPromise = api.getProducts()
+      .then((data) => {
+        if (Array.isArray(data)) {
+          setProducts(data);
+        }
+      })
+      .catch((err) => {
+        console.warn("[Products fetch error]:", err);
+        hasError = true;
+      });
+
+    const fetchSummaryPromise = api.getOrdersSummary()
+      .then((data) => {
+        if (data && typeof data === "object") {
+          setStats(data);
+        }
+      })
+      .catch((err) => {
+        console.warn("[Summary fetch error]:", err);
+      });
+
     try {
-      // Fetch concurrently from backend
-      const [productsRes, ordersRes, summaryRes] = await Promise.allSettled([
-        api.getProducts(),
-        api.getOrders(),
-        api.getOrdersSummary(),
-      ]);
-
-      let hasError = false;
-
-      if (productsRes.status === "fulfilled" && Array.isArray(productsRes.value)) {
-        setProducts(productsRes.value);
-      } else {
-        hasError = true;
-      }
-
-      if (ordersRes.status === "fulfilled" && Array.isArray(ordersRes.value)) {
-        ordersRes.value.forEach((ord) => {
-          if (ord && ord.id != null) {
-            processedOrderIdsRef.current.add(ord.id);
-          }
-        });
-        setOrders(ordersRes.value);
-      } else {
-        hasError = true;
-      }
-
-      if (summaryRes.status === "fulfilled" && summaryRes.value) {
-        setStats(summaryRes.value);
-      }
-
-      if (hasError && !dbError) {
+      await Promise.allSettled([fetchOrdersPromise, fetchProductsPromise, fetchSummaryPromise]);
+      if (hasError && !dbError && orders.length === 0 && products.length === 0) {
         setDbError("Unable to communicate with MySQL backend. Please verify MySQL service is running.");
       }
     } catch (err) {
-      setDbError(err.message || "Connection failed");
+      if (orders.length === 0) {
+        setDbError(err.message || "Connection failed");
+      }
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [dbError]);
+  }, [dbError, orders.length, products.length]);
 
   useEffect(() => {
     fetchData();
@@ -1225,11 +1248,11 @@ export default function AdminDashboard({ onOpenChatbot, addToast, onAddToCart, d
                 {/* Refresh Button */}
                 <button
                   className="btn btn-secondary btn-sm refresh-table-btn"
-                  onClick={() => fetchData(false)}
+                  onClick={() => fetchData(true)}
                   disabled={refreshing || loading}
                   title="Re-fetch latest data from backend"
                 >
-                  <RefreshCw size={14} className={refreshing || loading ? "spin" : ""} />
+                  <RefreshCw size={14} className={refreshing ? "spin" : ""} />
                   <span>Refresh</span>
                 </button>
               </div>

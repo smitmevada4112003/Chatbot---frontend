@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import React, { useState, useEffect } from "react";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { api, authStorage } from "./services/api";
 import {
   Lock,
@@ -9,16 +9,47 @@ import {
   AlertCircle,
   KeyRound,
   CheckCircle2,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import "./AuthPages.css";
 
 export default function Login({ onLoginSuccess }) {
   const navigate = useNavigate();
-  const [email, setEmail] = useState("");
+  const location = useLocation();
+  const [email, setEmail] = useState(location.state?.email || "");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
+
+  useEffect(() => {
+    if (location.state?.email) {
+      setEmail(location.state.email);
+    }
+  }, [location.state]);
+
+  // Determine intended redirect destination for customers
+  const rawFrom = location.state?.from?.pathname || location.state?.from;
+  // If the intended page was /admin or invalid, customers cannot access it, so default to /chat
+  const customerDestination =
+    rawFrom && typeof rawFrom === "string" && !rawFrom.startsWith("/admin") && rawFrom !== "/login"
+      ? rawFrom
+      : "/chat";
+
+  // If already logged in, redirect immediately based on role
+  useEffect(() => {
+    const token = authStorage.getToken() || localStorage.getItem("authToken");
+    const role = (authStorage.getRole() || localStorage.getItem("userRole") || "").toLowerCase();
+    if (token) {
+      if (role === "admin") {
+        navigate("/admin", { replace: true });
+      } else {
+        navigate(customerDestination, { replace: true });
+      }
+    }
+  }, [navigate, customerDestination]);
 
   const handleAutofillAdmin = () => {
     setEmail("admin@example.com");
@@ -31,13 +62,16 @@ export default function Login({ onLoginSuccess }) {
     setErrorMsg("");
     setSuccessMsg("");
 
-    // Basic client-side validation
-    const trimmedEmail = email.trim();
+    // Basic client-side validation (with fallback to DOM values for browser autofill)
+    const emailEl = document.getElementById("login-email");
+    const passwordEl = document.getElementById("login-password");
+    const trimmedEmail = (email || emailEl?.value || "").trim();
+    const cleanPassword = (password || passwordEl?.value || "").trim();
     if (!trimmedEmail) {
       setErrorMsg("Please enter your email address.");
       return;
     }
-    if (!password) {
+    if (!cleanPassword) {
       setErrorMsg("Please enter your password.");
       return;
     }
@@ -46,11 +80,11 @@ export default function Login({ onLoginSuccess }) {
 
     try {
       // Calls POST /login (accepts email and password, returns access_token & role)
-      const data = await api.login(trimmedEmail, password);
+      const data = await api.login(trimmedEmail, cleanPassword);
 
       // Store in localStorage under "authToken" and "userRole"
       const token = data.access_token;
-      const role = data.role || data.user?.role || "customer";
+      const role = (data.role || data.user?.role || "customer").toLowerCase();
 
       localStorage.setItem("authToken", token);
       localStorage.setItem("userRole", role);
@@ -64,9 +98,9 @@ export default function Login({ onLoginSuccess }) {
 
       setTimeout(() => {
         if (role === "admin") {
-          navigate("/admin");
+          navigate("/admin", { replace: true });
         } else {
-          navigate("/chat");
+          navigate(customerDestination, { replace: true });
         }
       }, 400);
     } catch (err) {
@@ -89,18 +123,18 @@ export default function Login({ onLoginSuccess }) {
           <p>Sign in to your account to continue</p>
         </div>
 
-        {/* Demo Admin Banner */}
+        {/* Demo Admin Quick-Fill Banner */}
         <div className="auth-demo-box">
           <div className="auth-demo-text">
             <KeyRound size={15} />
-            <span>Admin Demo: <code>admin@example.com</code> / <code>Admin123!</code></span>
+            <span>Admin: <code>admin@example.com</code> / <code>Admin123!</code></span>
           </div>
           <button
             type="button"
             className="auth-demo-btn"
             onClick={handleAutofillAdmin}
           >
-            Auto-fill
+            Fill Admin
           </button>
         </div>
 
@@ -132,6 +166,9 @@ export default function Login({ onLoginSuccess }) {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 autoComplete="email"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck="false"
                 required
               />
             </div>
@@ -148,17 +185,41 @@ export default function Login({ onLoginSuccess }) {
                 Forgot password?
               </Link>
             </div>
-            <div className="auth-field-input">
+            <div className="auth-field-input" style={{ position: "relative" }}>
               <Lock size={17} className="auth-field-icon" />
               <input
                 id="login-password"
-                type="password"
+                type={showPassword ? "text" : "password"}
                 placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 autoComplete="current-password"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck="false"
                 required
+                style={{ paddingRight: "40px" }}
               />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                style={{
+                  position: "absolute",
+                  right: "12px",
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  color: "#64748b",
+                  display: "flex",
+                  alignItems: "center",
+                  padding: 0,
+                }}
+                title={showPassword ? "Hide password" : "Show password"}
+              >
+                {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
+              </button>
             </div>
           </div>
 

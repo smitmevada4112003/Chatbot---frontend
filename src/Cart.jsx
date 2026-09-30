@@ -171,6 +171,8 @@ export default function Cart({ onCartUpdated }) {
   };
 
   const isLoggedIn = Boolean(authStorage.getToken());
+  const isAdmin = authStorage.isAdmin();
+  const continueShoppingLink = isAdmin ? "/admin" : "/chat";
 
   return (
     <div className="cart-page-container">
@@ -182,7 +184,7 @@ export default function Cart({ onCartUpdated }) {
             Review your selected products and checkout securely.
           </p>
         </div>
-        <Link to="/admin" className="cart-continue-link">
+        <Link to={continueShoppingLink} className="cart-continue-link">
           <ArrowLeft size={16} />
           <span>Continue Shopping</span>
         </Link>
@@ -228,7 +230,7 @@ export default function Cart({ onCartUpdated }) {
           <ShoppingBag size={56} className="cart-empty-icon" />
           <h2>Your Shopping Cart is Empty</h2>
           <p>Discover our latest products and add items to your cart to check out.</p>
-          <Link to="/admin" className="cart-btn-primary">
+          <Link to={continueShoppingLink} className="cart-btn-primary">
             Explore Products Catalog
           </Link>
         </div>
