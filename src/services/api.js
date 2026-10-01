@@ -1,21 +1,18 @@
 // Centralized API client for Product & Order Backend
-// Backend base URL: http://127.0.0.1:8000
-const BACKEND_BASE_URL = "http://127.0.0.1:8000";
+// Backend base URL: https://chatbot-backend-cnn7.onrender.com
+const BACKEND_BASE_URL = "https://chatbot-backend-cnn7.onrender.com";
 const BASE_URL =
   typeof window !== "undefined" && window.location.origin.includes("8000")
     ? ""
     : BACKEND_BASE_URL;
 
 export function getWebSocketOrdersUrl() {
-  if (typeof window === "undefined") return "ws://127.0.0.1:8000/ws/admin-notifications";
-  const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+  if (typeof window === "undefined") return "wss://chatbot-backend-cnn7.onrender.com/ws/admin-notifications";
   if (window.location.port === "8000") {
+    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     return `${protocol}//${window.location.host}/ws/admin-notifications`;
   }
-  if (window.location.port === "5173" || window.location.port === "3000") {
-    return `${protocol}//127.0.0.1:8000/ws/admin-notifications`;
-  }
-  return `ws://127.0.0.1:8000/ws/admin-notifications`;
+  return "wss://chatbot-backend-cnn7.onrender.com/ws/admin-notifications";
 }
 
 export const authStorage = {

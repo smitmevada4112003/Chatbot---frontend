@@ -5,11 +5,11 @@ import { api, authStorage } from "./services/api";
 import { useTheme } from "./ThemeContext";
 import "./ChatBot.css";
 
-// Backend base URL: http://127.0.0.1:8000
+// Backend base URL: https://chatbot-backend-cnn7.onrender.com
 const API_URL =
     typeof window !== "undefined" && window.location.origin.includes("8000")
         ? "/chat"
-        : "http://127.0.0.1:8000/chat";
+        : "https://chatbot-backend-cnn7.onrender.com/chat";
 
 
 // Generates or retrieves a persistent session ID for the current browser tab
@@ -153,7 +153,7 @@ export default function ChatBot({ darkMode: propDarkMode, onToggleTheme: propTog
                 ...prev,
                 {
                     role: "bot",
-                    text: "⚠️ Could not reach the server. Is the backend running on port 8000?",
+                    text: "⚠️ Could not reach the server. Please check your connection or try again shortly.",
                 },
             ]);
         } finally {
