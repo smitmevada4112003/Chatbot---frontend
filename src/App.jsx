@@ -407,7 +407,7 @@ function AppContent() {
                   <Link
                     to="/signup"
                     className="btn-header-signin"
-                    style={{ textDecoration: "none", background: "#f8fafc" }}
+                    style={{ textDecoration: "none" }}
                   >
                     <UserPlus size={15} />
                     <span>Sign Up</span>
